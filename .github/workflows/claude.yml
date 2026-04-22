@@ -20,31 +20,52 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Project Setup
+        run: |
+          npm install
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # This is an optional setting that allows Claude to read CI results on PRs
+          
+          # 額外權限設定
           additional_permissions: |
             actions: read
 
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
+          # 給 Claude 的自定義指令
+          custom_instructions: |
+            This is an AI Bookmark Generator project. 
+            The environment is already set up with 'npm install'.
+            If you need to verify the UI or interact with a browser, please use the mcp__playwright tools.
+            You can run the development server using 'npm start' if needed.
 
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr *)'
+          # 啟用 Playwright MCP 伺服器 (讓 Claude 能開瀏覽器)
+          mcp_config: |
+            {
+              "mcpServers": {
+                "playwright": {
+                  "command": "npx",
+                  "args": ["@playwright/mcp@latest"]
+                }
+              }
+            }
 
+          # 授權工具權限 (很重要：沒加這個 Claude 會無法執行指令)
+          allowed_tools: "Bash(npm:*),Bash(ls:*),Bash(cat:*),mcp__playwright__*"
